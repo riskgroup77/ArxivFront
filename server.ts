@@ -63,6 +63,7 @@ startxref
 interface DBStructure {
   users: any[];
   students: any[];
+  employees: any[];
   categories: any[];
   cabinets: any[];
   documents: any[];
@@ -104,39 +105,25 @@ const initialDB: DBStructure = {
   ],
   categories: [
     {
-      id: "cat-1",
-      name: "Diplom ilovasi",
-      description: "Bitiruvchilarga beriladigan rasmiy diplom ilova va baholar varaqasi",
+      id: "cat-institut",
+      name: "Institut",
+      description: "Institut bo'linmalari va ma'muriy-tashkiliy farmon hamda buyruqlari",
       isActive: true,
       createdAt: new Date("2026-01-01T09:00:00Z").toISOString(),
     },
     {
-      id: "cat-2",
-      name: "Reyting daftarchasi",
-      description: "Yillar bo'yicha talabalarning reyting va imtihon daftarchalari nusxalari",
+      id: "cat-xodim",
+      name: "Xodim",
+      description: "Institut professor-o'qituvchilari hamda yordamchi xodimlarining shaxsiy jildlari",
       isActive: true,
       createdAt: new Date("2026-01-01T09:00:00Z").toISOString(),
     },
     {
-      id: "cat-3",
-      name: "Akademik ma’lumotnoma",
-      description: "Talabaning o'qigan fanlari va akademik davri to'g'risida ma'lumotnoma",
+      id: "cat-talaba",
+      name: "Talaba",
+      description: "Talabalarning reyting daftarchalari, diplom ilovalari, tavsiyanoma va shaxsiy hujjatlari",
       isActive: true,
       createdAt: new Date("2026-01-02T09:00:00Z").toISOString(),
-    },
-    {
-      id: "cat-4",
-      name: "Tavsiyanoma",
-      description: "Kafedra yoki dekanat tomonidan taqdim etilgan tavsiyanomalar",
-      isActive: true,
-      createdAt: new Date("2026-01-05T09:00:00Z").toISOString(),
-    },
-    {
-      id: "cat-5",
-      name: "Bitiruv malakaviy ishi",
-      description: "Bakalavr bitiruv ishlarining titul varaqalari va annotatsiyalari",
-      isActive: true,
-      createdAt: new Date("2026-01-10T09:00:00Z").toISOString(),
     }
   ],
   cabinets: [
@@ -203,11 +190,40 @@ const initialDB: DBStructure = {
       updatedAt: new Date("2026-02-15T15:20:00Z").toISOString(),
     }
   ],
+  employees: [
+    {
+      id: "emp-1",
+      lastName: "Raimov",
+      firstName: "Izzat",
+      middleName: "Sardorovich",
+      employeeId: "EMP-1029",
+      department: "Kompyuter tizimlari dekanati",
+      position: "Dekan o'rinbosari",
+      phone: "+998 90 321 09 87",
+      createdAt: new Date("2026-02-12T10:00:00Z").toISOString(),
+      updatedAt: new Date("2026-02-12T10:00:00Z").toISOString(),
+    },
+    {
+      id: "emp-2",
+      lastName: "Ismoilova",
+      firstName: "Dilorom",
+      middleName: "Baxtiyorovna",
+      employeeId: "EMP-2039",
+      department: "Gumanitar fanlar kafedrasi",
+      position: "Katta o'qituvchi",
+      phone: "+998 99 777 55 44",
+      createdAt: new Date("2026-02-14T11:00:00Z").toISOString(),
+      updatedAt: new Date("2026-02-14T11:00:00Z").toISOString(),
+    }
+  ],
   documents: [
     {
       id: "doc-1",
       studentId: "std-1",
-      categoryId: "cat-1",
+      categoryId: "cat-talaba",
+      docName: "Diplom ilovasi",
+      docDate: "2026-02-11",
+      personType: "student",
       cabinetId: "cab-1",
       floor: 3,
       filePath: "doc-1.pdf",
@@ -222,8 +238,11 @@ const initialDB: DBStructure = {
     },
     {
       id: "doc-2",
-      studentId: "std-2",
-      categoryId: "cat-3",
+      employeeId: "emp-1",
+      categoryId: "cat-xodim",
+      docName: "Shaxsiy jild buyrug'i",
+      docDate: "2026-02-13",
+      personType: "employee",
       cabinetId: "cab-2",
       floor: 5,
       filePath: "doc-2.pdf",
@@ -239,7 +258,10 @@ const initialDB: DBStructure = {
     {
       id: "doc-3",
       studentId: "std-3",
-      categoryId: "cat-2",
+      categoryId: "cat-talaba",
+      docName: "Reyting daftarchasi",
+      docDate: "2026-02-16",
+      personType: "student",
       cabinetId: "cab-1",
       floor: 1,
       filePath: "doc-3.pdf",
@@ -304,7 +326,34 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
   // Pre-seed db if not exists
-  readDB();
+  const loadedDb = readDB();
+  let shouldUpdateDb = false;
+  if (!loadedDb.categories || loadedDb.categories.length !== 3 || !loadedDb.categories.find(c => c.id === 'cat-institut')) {
+    loadedDb.categories = initialDB.categories;
+    // Map existing documents' categories to new standard categories for safety
+    if (loadedDb.documents) {
+      loadedDb.documents.forEach((d: any) => {
+        if (d.categoryId === 'cat-3' || d.categoryId === 'cat-xodim') {
+          d.categoryId = 'cat-xodim';
+          d.personType = 'employee';
+        } else if (d.categoryId === 'cat-institut') {
+          d.categoryId = 'cat-institut';
+          d.personType = 'none';
+        } else {
+          d.categoryId = 'cat-talaba';
+          d.personType = 'student';
+        }
+      });
+    }
+    shouldUpdateDb = true;
+  }
+  if (!loadedDb.employees || loadedDb.employees.length === 0) {
+    loadedDb.employees = initialDB.employees;
+    shouldUpdateDb = true;
+  }
+  if (shouldUpdateDb) {
+    writeDB(loadedDb);
+  }
 
   // Helper utility to fetch current user based on Authorization header
   const getAuthUser = (req: express.Request): any | null => {
@@ -501,22 +550,38 @@ async function startServer() {
       return;
     }
 
-    const { q, categoryId, cabinetId, dateFrom, dateTo, status, page = 1, limit = 50 } = req.query;
+    const { q, categoryId, cabinetId, dateFrom, dateTo, docDate, status, page = 1, limit = 50 } = req.query;
     const db = readDB();
 
     let filtered = db.documents.filter(d => !d.deletedAt);
 
-    // Text search (lastName, firstName, middleName, studentId)
+    // Text search (lastName, firstName, middleName, studentId, employeeId, docName)
     if (q) {
       const searchStr = String(q).toLowerCase();
       filtered = filtered.filter(doc => {
         const studentObj = db.students.find(s => s.id === doc.studentId);
-        if (!studentObj) return false;
-        const fullName = `${studentObj.lastName} ${studentObj.firstName} ${studentObj.middleName || ""}`.toLowerCase();
-        const studentIdVal = (studentObj.studentId || "").toLowerCase();
+        const employeeObj = db.employees ? db.employees.find(e => e.id === doc.employeeId) : undefined;
+        
+        let targetName = "";
+        let targetId = "";
+        
+        if (studentObj) {
+          targetName = `${studentObj.lastName} ${studentObj.firstName} ${studentObj.middleName || ""}`.toLowerCase();
+          targetId = (studentObj.studentId || "").toLowerCase();
+        } else if (employeeObj) {
+          targetName = `${employeeObj.lastName} ${employeeObj.firstName} ${employeeObj.middleName || ""}`.toLowerCase();
+          targetId = (employeeObj.employeeId || "").toLowerCase();
+        }
+
+        const docNameVal = (doc.docName || "").toLowerCase();
         const originalFilenameVal = (doc.originalFilename || "").toLowerCase();
         const notesVal = (doc.notes || "").toLowerCase();
-        return fullName.includes(searchStr) || studentIdVal.includes(searchStr) || originalFilenameVal.includes(searchStr) || notesVal.includes(searchStr);
+
+        return targetName.includes(searchStr) || 
+               targetId.includes(searchStr) || 
+               docNameVal.includes(searchStr) || 
+               originalFilenameVal.includes(searchStr) || 
+               notesVal.includes(searchStr);
       });
 
       // Simple search query log for the system audit
@@ -545,10 +610,15 @@ async function startServer() {
       filtered = filtered.filter(d => d.receivedAt <= toStr);
     }
 
+    if (docDate) {
+      filtered = filtered.filter(d => d.docDate === String(docDate));
+    }
+
     // Join entities
     const total = filtered.length;
     const joined = filtered.map(doc => {
       const studentObj = db.students.find(s => s.id === doc.studentId);
+      const employeeObj = db.employees ? db.employees.find(e => e.id === doc.employeeId) : undefined;
       const categoryObj = db.categories.find(c => c.id === doc.categoryId);
       const cabinetObj = db.cabinets.find(cab => cab.id === doc.cabinetId);
       const receiverObj = db.users.find(u => u.id === doc.receivedByUserId);
@@ -557,6 +627,7 @@ async function startServer() {
       return {
         ...doc,
         student: studentObj,
+        employee: employeeObj,
         category: categoryObj,
         cabinet: cabinetObj,
         receiver: receiverObj ? { fullName: receiverObj.fullName } : undefined,
@@ -654,20 +725,34 @@ async function startServer() {
 
     const {
       categoryId,
-      newCategoryName,  // If creating new category on-the-fly
-      newCategoryDesc,
-      studentId,        // Will be filled if selecting existing student
+      docName,
+      docDate,
+      personType, // 'student' | 'employee' | 'none'
+
+      // Student details
+      studentId,
       studentFirstName,
       studentLastName,
       studentMiddleName,
-      studentRegId,     // unique Student ID from school card
+      studentRegId,
       studentGroup,
       studentBirthDate,
       studentPhone,
+
+      // Employee details
+      employeeId,
+      employeeFirstName,
+      employeeLastName,
+      employeeMiddleName,
+      employeeRegId,
+      employeeDepartment,
+      employeePosition,
+      employeePhone,
+
       cabinetId,
       floor,
       pdfFilename,
-      pdfBase64,        // base64 payload of uploaded PDF
+      pdfBase64,
       notes,
     } = req.body;
 
@@ -680,67 +765,86 @@ async function startServer() {
     const db = readDB();
 
     // 1. Resolve Category
-    let resolvedCategoryId = categoryId;
-    if (!resolvedCategoryId && newCategoryName) {
-      // Check if duplicate case-insensitive
-      const existingCat = db.categories.find(c => c.name.toLowerCase() === newCategoryName.toLowerCase());
-      if (existingCat) {
-        resolvedCategoryId = existingCat.id;
-      } else {
-        const newCatId = "cat-" + Date.now();
-        const newCat = {
-          id: newCatId,
-          name: newCategoryName,
-          description: newCategoryDesc || "",
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        };
-        db.categories.push(newCat);
-        resolvedCategoryId = newCatId;
-        logAudit(user.id, user.fullName, `Yangi kategoriya yaratildi qabul jarayonida: "${newCategoryName}"`, "Category", newCatId);
-      }
-    }
-
-    if (!resolvedCategoryId) {
-      res.status(400).json({ error: "Kategoriya tanlanishi yoki yangidan kiritilishi shart" });
+    const category = db.categories.find(c => c.id === categoryId);
+    if (!category) {
+      res.status(400).json({ error: "Tanlangan kategoriya topilmadi" });
       return;
     }
 
-    // 2. Resolve Student
-    let resolvedStudentId = studentId;
-    if (!resolvedStudentId) {
-      // Needs studentLastName and studentFirstName as minimum
-      if (!studentFirstName || !studentLastName) {
-        res.status(400).json({ error: "Yangi o'quvchi ma'lumotlari kiritilishi shart (Familia va Ism)" });
-        return;
-      }
+    let resolvedStudentId = undefined;
+    let resolvedEmployeeId = undefined;
 
-      // Check if duplicate studentId is provided and unique
-      if (studentRegId) {
-        const studentDup = db.students.find(s => s.studentId && s.studentId.trim().toLowerCase() === studentRegId.trim().toLowerCase());
-        if (studentDup) {
-          resolvedStudentId = studentDup.id;
+    // 2. Resolve Person based on type
+    if (categoryId === "cat-talaba") {
+      resolvedStudentId = studentId;
+      if (!resolvedStudentId && (studentFirstName || studentLastName)) {
+        if (!studentFirstName || !studentLastName) {
+          res.status(400).json({ error: "Yangi talaba ma'lumotlari kiritilishi shart (Familia va Ism)" });
+          return;
+        }
+
+        // Check duplicate
+        if (studentRegId) {
+          const studentDup = db.students.find(s => s.studentId && s.studentId.trim().toLowerCase() === studentRegId.trim().toLowerCase());
+          if (studentDup) {
+            resolvedStudentId = studentDup.id;
+          }
+        }
+
+        if (!resolvedStudentId) {
+          const newStudentId = "std-" + Date.now();
+          const newStudent = {
+            id: newStudentId,
+            lastName: studentLastName.trim(),
+            firstName: studentFirstName.trim(),
+            middleName: studentMiddleName ? studentMiddleName.trim() : "",
+            studentId: studentRegId ? studentRegId.trim() : undefined,
+            groupName: studentGroup ? studentGroup.trim() : "",
+            birthDate: studentBirthDate || undefined,
+            phone: studentPhone || undefined,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          db.students.push(newStudent);
+          resolvedStudentId = newStudentId;
+          logAudit(user.id, user.fullName, `Yangi talaba qo'shildi: ${studentLastName} ${studentFirstName}`, "Student", newStudentId);
         }
       }
+    } else if (categoryId === "cat-xodim") {
+      resolvedEmployeeId = employeeId;
+      if (!resolvedEmployeeId) {
+        if (!employeeFirstName || !employeeLastName) {
+          res.status(400).json({ error: "Yangi xodim ma'lumotlari kiritilishi shart (Familia va Ism)" });
+          return;
+        }
 
-      if (!resolvedStudentId) {
-        // Create new Student record
-        const newStudentId = "std-" + Date.now();
-        const newStudent = {
-          id: newStudentId,
-          lastName: studentLastName.trim(),
-          firstName: studentFirstName.trim(),
-          middleName: studentMiddleName ? studentMiddleName.trim() : "",
-          studentId: studentRegId ? studentRegId.trim() : undefined,
-          groupName: studentGroup ? studentGroup.trim() : "",
-          birthDate: studentBirthDate || undefined,
-          phone: studentPhone || undefined,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        db.students.push(newStudent);
-        resolvedStudentId = newStudentId;
-        logAudit(user.id, user.fullName, `Yangi o'quvchi qo'shildi: ${studentLastName} ${studentFirstName}`, "Student", newStudentId);
+        // Check duplicate
+        if (employeeRegId) {
+          const empDup = db.employees.find(e => e.employeeId && e.employeeId.trim().toLowerCase() === employeeRegId.trim().toLowerCase());
+          if (empDup) {
+            resolvedEmployeeId = empDup.id;
+          }
+        }
+
+        if (!resolvedEmployeeId) {
+          const newEmpId = "emp-" + Date.now();
+          const newEmp = {
+            id: newEmpId,
+            lastName: employeeLastName.trim(),
+            firstName: employeeFirstName.trim(),
+            middleName: employeeMiddleName ? employeeMiddleName.trim() : "",
+            employeeId: employeeRegId ? employeeRegId.trim() : undefined,
+            department: employeeDepartment ? employeeDepartment.trim() : "",
+            position: employeePosition ? employeePosition.trim() : "",
+            phone: employeePhone || undefined,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          if (!db.employees) db.employees = [];
+          db.employees.push(newEmp);
+          resolvedEmployeeId = newEmpId;
+          logAudit(user.id, user.fullName, `Yangi xodim qo'shildi: ${employeeLastName} ${employeeFirstName}`, "Employee", newEmpId);
+        }
       }
     }
 
@@ -771,20 +875,23 @@ async function startServer() {
     let finalFileSize = 10240; // Default size if mocked
 
     if (pdfBase64) {
-      // Base64 regex strip header
       const base64Data = pdfBase64.replace(/^data:application\/pdf;base64,/, "");
       const buffer = Buffer.from(base64Data, "base64");
       fs.writeFileSync(fullPdfPath, buffer);
       finalFileSize = buffer.length;
     } else {
-      createDummyPDF(fullPdfPath, `O'quvchi ID: ${resolvedStudentId}\nQabul qilingan: ${new Date().toLocaleDateString()}`);
+      createDummyPDF(fullPdfPath, `Kategoriya: ${category.name}\nHujjat: ${docName || "N/A"}\nQabul qilingan: ${new Date().toLocaleDateString()}`);
     }
 
     // Create document record
     const newDoc = {
       id: docId,
       studentId: resolvedStudentId,
-      categoryId: resolvedCategoryId,
+      employeeId: resolvedEmployeeId,
+      categoryId,
+      docName: docName || "",
+      docDate: docDate || "",
+      personType: personType || (categoryId === "cat-talaba" ? "student" : categoryId === "cat-xodim" ? "employee" : "none"),
       cabinetId,
       floor: floorNum,
       filePath: secureFilename,
@@ -801,8 +908,18 @@ async function startServer() {
     db.documents.push(newDoc);
     writeDB(db);
 
-    const docStudent = db.students.find(s => s.id === resolvedStudentId);
-    logAudit(user.id, user.fullName, `Yangi arxiv hujjat qabul qilindi: "${cleanFilename}" o'quvchi: ${docStudent?.lastName || ""} ${docStudent?.firstName || ""}`, "Document", docId, { documentId: docId });
+    let auditEntityDesc = "";
+    if (categoryId === "cat-talaba") {
+      const docStudent = db.students.find(s => s.id === resolvedStudentId);
+      auditEntityDesc = `talaba: ${docStudent?.lastName || ""} ${docStudent?.firstName || ""}`;
+    } else if (categoryId === "cat-xodim") {
+      const docEmp = db.employees.find(e => e.id === resolvedEmployeeId);
+      auditEntityDesc = `xodim: ${docEmp?.lastName || ""} ${docEmp?.firstName || ""}`;
+    } else {
+      auditEntityDesc = "Institut hujjati";
+    }
+
+    logAudit(user.id, user.fullName, `Yangi arxiv hujjat qabul qilindi: "${docName || cleanFilename}" (${auditEntityDesc})`, "Document", docId, { documentId: docId });
 
     res.status(201).json(newDoc);
   });
@@ -1102,6 +1219,28 @@ async function startServer() {
     });
 
     res.json(result);
+  });
+
+  // GET Students list
+  app.get("/api/students", (req, res) => {
+    const user = getAuthUser(req);
+    if (!user) {
+      res.status(401).json({ error: "Avtorizatsiya talab qilinadi" });
+      return;
+    }
+    const db = readDB();
+    res.json(db.students || []);
+  });
+
+  // GET Employees list
+  app.get("/api/employees", (req, res) => {
+    const user = getAuthUser(req);
+    if (!user) {
+      res.status(401).json({ error: "Avtorizatsiya talab qilinadi" });
+      return;
+    }
+    const db = readDB();
+    res.json(db.employees || []);
   });
 
   // POST Cabinet CRUD

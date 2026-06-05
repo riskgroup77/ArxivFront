@@ -65,6 +65,7 @@ export const api = {
     cabinetId?: string;
     dateFrom?: string;
     dateTo?: string;
+    docDate?: string;
     status?: string;
     page?: number;
     limit?: number;
@@ -75,6 +76,7 @@ export const api = {
     if (params.cabinetId) query.set("cabinetId", params.cabinetId);
     if (params.dateFrom) query.set("dateFrom", params.dateFrom);
     if (params.dateTo) query.set("dateTo", params.dateTo);
+    if (params.docDate) query.set("docDate", params.docDate);
     if (params.status) query.set("status", params.status);
     if (params.page) query.set("page", String(params.page));
     if (params.limit) query.set("limit", String(params.limit));
@@ -153,4 +155,10 @@ export const api = {
 
   getAuditLogs: () => 
     request("/api/audit-logs"),
+
+  getStudents: () =>
+    request("/api/students"),
+
+  getEmployees: () =>
+    request("/api/employees"),
 };

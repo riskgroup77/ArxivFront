@@ -34,15 +34,16 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
   const [categories, setCategories] = useState<any[]>([]);
   const [cabinets, setCabinets] = useState<any[]>([]);
   const [existingStudents, setExistingStudents] = useState<any[]>([]);
+  const [existingEmployees, setExistingEmployees] = useState<any[]>([]);
 
   // STEP 1 Form State: Category
   const [categoryId, setCategoryId] = useState("");
-  const [showCatForm, setShowCatForm] = useState(false);
-  const [newCatName, setNewCatName] = useState("");
-  const [newCatDesc, setNewCatDesc] = useState("");
-  const [catError, setCatError] = useState("");
 
-  // STEP 2 Form State: Student
+  // Document Info
+  const [docName, setDocName] = useState("");
+  const [docDate, setDocDate] = useState("");
+
+  // STEP 2 Form State: Student (for cat-talaba)
   const [studentMode, setStudentMode] = useState<"existing" | "new">("existing");
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [lastName, setLastName] = useState("");
@@ -52,6 +53,17 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
   const [groupName, setGroupName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [phone, setPhone] = useState("");
+
+  // STEP 2 Form State: Employee (for cat-xodim)
+  const [employeeMode, setEmployeeMode] = useState<"existing" | "new">("existing");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [employeeFirstName, setEmployeeFirstName] = useState("");
+  const [employeeLastName, setEmployeeLastName] = useState("");
+  const [employeeMiddleName, setEmployeeMiddleName] = useState("");
+  const [employeeRegId, setEmployeeRegId] = useState(""); // Tababel raqami / ID
+  const [employeeDepartment, setEmployeeDepartment] = useState(""); // Kafedrasi / Bo'limi
+  const [employeePosition, setEmployeePosition] = useState(""); // Lavozimi
+  const [employeePhone, setEmployeePhone] = useState("");
 
   // STEP 3 Form State: PDF File
   const [file, setFile] = useState<File | null>(null);
@@ -72,15 +84,12 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
       setCategories(cats);
       setCabinets(cabs);
 
-      // Extract unique students by querying documents listing
-      const docRes = await api.getDocuments({ limit: 500 });
-      const studentsMap = new Map();
-      docRes.documents.forEach((d: any) => {
-        if (d.student) {
-          studentsMap.set(d.student.id, d.student);
-        }
-      });
-      setExistingStudents(Array.from(studentsMap.values()));
+      // Load clean lists
+      const stdList = await api.getStudents();
+      setExistingStudents(stdList || []);
+
+      const empList = await api.getEmployees();
+      setExistingEmployees(empList || []);
     } catch (err) {
       console.error("Failed to load metadata in Intake", err);
     }
@@ -89,27 +98,6 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
   useEffect(() => {
     loadData();
   }, []);
-
-  // Inline Category Saving
-  const handleCreateCategory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCatError("");
-    if (!newCatName.trim()) {
-      setCatError("Kategoriya nomi majburiy");
-      return;
-    }
-
-    try {
-      const created = await api.createCategory(newCatName.trim(), newCatDesc.trim());
-      setCategories([...categories, created]);
-      setCategoryId(created.id);
-      setNewCatName("");
-      setNewCatDesc("");
-      setShowCatForm(false);
-    } catch (err: any) {
-      setCatError(err.message || "Kategoriyani saqlashda xatolik yuz berdi");
-    }
-  };
 
   // Base64 File encoding
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -154,6 +142,9 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
 
     // Payload Assembly
     const payload: any = {
+      categoryId,
+      docName,
+      docDate,
       cabinetId,
       floor: Number(floor),
       pdfFilename: file?.name || "arxiv_hujjat.pdf",
@@ -161,29 +152,28 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
       notes,
     };
 
-    if (categoryId) {
-      payload.categoryId = categoryId;
-    } else {
-      setGlobalError("Kategoriya tanlanmagan");
-      setLoading(false);
-      return;
-    }
-
-    if (studentMode === "existing") {
-      if (!selectedStudentId) {
-        setGlobalError("Mavjud talabani tanlang yoki yangi yarating");
-        setLoading(false);
-        return;
+    if (categoryId === "cat-talaba") {
+      payload.personType = "none";
+    } else if (categoryId === "cat-xodim") {
+      payload.personType = "employee";
+      if (employeeMode === "existing") {
+        if (!selectedEmployeeId) {
+          setGlobalError("Mavjud xodimni tanlang!");
+          setLoading(false);
+          return;
+        }
+        payload.employeeId = selectedEmployeeId;
+      } else {
+        payload.employeeFirstName = employeeFirstName;
+        payload.employeeLastName = employeeLastName;
+        payload.employeeMiddleName = employeeMiddleName;
+        payload.employeeRegId = employeeRegId;
+        payload.employeeDepartment = employeeDepartment;
+        payload.employeePosition = employeePosition;
+        payload.employeePhone = employeePhone;
       }
-      payload.studentId = selectedStudentId;
     } else {
-      payload.studentFirstName = firstName;
-      payload.studentLastName = lastName;
-      payload.studentMiddleName = middleName;
-      payload.studentRegId = studentRegId;
-      payload.studentGroup = groupName;
-      payload.studentBirthDate = birthDate;
-      payload.studentPhone = phone;
+      payload.personType = "none";
     }
 
     try {
@@ -202,6 +192,10 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
     setSuccess(false);
     setGlobalError(null);
     setCategoryId("");
+    setDocName("");
+    setDocDate("");
+
+    // Students Reset
     setSelectedStudentId("");
     setLastName("");
     setFirstName("");
@@ -210,14 +204,44 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
     setGroupName("");
     setBirthDate("");
     setPhone("");
+
+    // Employees Reset
+    setSelectedEmployeeId("");
+    setEmployeeFirstName("");
+    setEmployeeLastName("");
+    setEmployeeMiddleName("");
+    setEmployeeRegId("");
+    setEmployeeDepartment("");
+    setEmployeePosition("");
+    setEmployeePhone("");
+
     setFile(null);
     setPdfBase64("");
     setUploadProgress(0);
     setCabinetId("");
     setFloor("");
     setNotes("");
+    
     // reload background lists
     loadData();
+  };
+
+  const getStepRailConfig = () => {
+    let secondStepLabel = "Hujjat ma'lumotlari";
+    let secondStepDesc = "Nomi, raqami va chiqarilgan sanasi";
+    
+    if (categoryId === "cat-xodim") {
+      secondStepLabel = "Hujjat va xodim";
+      secondStepDesc = "F.I.Sh va tababel rekvizitlari";
+    }
+
+    return [
+      { num: 1, label: "Kategoriya tanlash", icon: FolderPlus, desc: "Soha bo'limini tanlang" },
+      { num: 2, label: secondStepLabel, icon: UserPlus, desc: secondStepDesc },
+      { num: 3, label: "PDF nusxasi", icon: FileUp, desc: "Maksimal hajm: 20 MB (.pdf)" },
+      { num: 4, label: "Arxiv joylashuvi", icon: MapIcon, desc: "Shkaf va Tokcha (Tok)" },
+      { num: 5, label: "Xulosa va saqlash", icon: CheckCircle, desc: "Yakuniy ma'lumotlarni tahlil qilish" }
+    ];
   };
 
   const selectedCabinet = cabinets.find(c => c.id === cabinetId);
@@ -226,8 +250,19 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
   const isStepValid = () => {
     if (step === 1) return !!categoryId;
     if (step === 2) {
-      if (studentMode === "existing") return !!selectedStudentId;
-      return firstName.trim().length >= 2 && lastName.trim().length >= 2;
+      if (categoryId === "cat-institut") {
+        return docName.trim().length >= 2 && !!docDate;
+      }
+      if (categoryId === "cat-xodim") {
+        const hasDocFields = docName.trim().length >= 2 && !!docDate;
+        if (!hasDocFields) return false;
+        if (employeeMode === "existing") return !!selectedEmployeeId;
+        return employeeLastName.trim().length >= 2 && employeeFirstName.trim().length >= 2;
+      }
+      if (categoryId === "cat-talaba") {
+        return docName.trim().length >= 2 && !!docDate;
+      }
+      return false;
     }
     if (step === 3) return !!pdfBase64;
     if (step === 4) {
@@ -291,13 +326,7 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
           
           {/* STAGES SIDE RAILS */}
           <div className="lg:col-span-1 space-y-2.5">
-            {[
-              { num: 1, label: "Kategoriya kiritish", icon: FolderPlus, desc: "Hujjat turi / spravochnik" },
-              { num: 2, label: "Talaba o'quvchi", icon: UserPlus, desc: "F.I.Sh hamda HEMIS bog'lovi" },
-              { num: 3, label: "PDF nusxasi", icon: FileUp, desc: "Maksimal hajm: 20 MB (.pdf)" },
-              { num: 4, label: "Arxiv joylashuvi", icon: MapIcon, desc: "Shkaf va Tokcha (Tok)" },
-              { num: 5, label: "Xulosa va saqlash", icon: CheckCircle, desc: "Yakuniy ma'lumotlarni tahlil qilish" }
-            ].map((st) => {
+            {getStepRailConfig().map((st) => {
               const Icon = st.icon;
               const isActive = step === st.num;
               const isCompleted = step > st.num;
@@ -339,224 +368,301 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
                   </div>
 
                   <div className="space-y-4">
-                    {!showCatForm ? (
-                      <div className="space-y-3">
-                        <label className="block text-xs font-mono uppercase tracking-wider text-neutral-500">
-                          Mavjud kategoriyalardan tanlang:
-                        </label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                          {categories.map((cat) => (
+                    <div className="space-y-3">
+                      <label className="block text-xs font-mono uppercase tracking-wider text-neutral-500 font-semibold">
+                        Kategoriyaniturni tanlang (*):
+                      </label>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {(categories.filter(c => ["cat-institut", "cat-xodim", "cat-talaba"].includes(c.id)).length > 0
+                          ? categories.filter(c => ["cat-institut", "cat-xodim", "cat-talaba"].includes(c.id))
+                          : [
+                              { id: "cat-institut", name: "Institut", description: "Institut rasmiy hujjatlari, ko'rsatma va buyruqlar." },
+                              { id: "cat-xodim", name: "Xodim", description: "Xodimlar va o'qituvchilarning shaxsiy arxiv rekvizitlari." },
+                              { id: "cat-talaba", name: "Talaba", description: "Talabalarning o'quv faoliyati varaqalari va buyruqlar." }
+                            ]
+                        ).map((cat) => {
+                          const isSelected = categoryId === cat.id;
+                          return (
                             <div 
                               key={cat.id}
                               onClick={() => setCategoryId(cat.id)}
-                              className={`border-2 p-3.5 cursor-pointer rounded-lg transition-all flex justify-between items-center ${categoryId === cat.id ? 'border-indigo-500 bg-indigo-50/20' : 'border-neutral-200 hover:border-indigo-400 bg-white'}`}
+                              className={`border-2 p-4 cursor-pointer rounded-xl transition-all flex flex-col justify-between min-h-[140px] ${isSelected ? 'border-indigo-600 bg-indigo-50/20 ring-2 ring-indigo-500/15' : 'border-neutral-200 hover:border-indigo-400 bg-white'}`}
                             >
                               <div>
-                                <span className="block font-bold text-xs text-neutral-950">{cat.name}</span>
-                                <span className="text-[10px] text-neutral-400 leading-tight mt-1 mr-1 line-clamp-1">{cat.description || "Tavsif kiritilmagan"}</span>
+                                <span className="block font-sans font-bold text-xs text-indigo-950 uppercase tracking-wider">{cat.name}</span>
+                                <span className="text-[10px] text-neutral-500 leading-normal mt-2.5 block">{cat.description || "Tavsif kiritilmagan"}</span>
                               </div>
-                              <div className={`w-3.5 h-3.5 border rounded-full flex items-center justify-center ${categoryId === cat.id ? 'border-indigo-600 bg-indigo-600' : 'border-neutral-300'}`}>
-                                {categoryId === cat.id && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                              <div className="flex justify-between items-center mt-3 pt-3 border-t border-indigo-100/40">
+                                <span className="text-[9px] font-mono uppercase tracking-widest text-neutral-400">Tanlangan</span>
+                                <div className={`w-3.5 h-3.5 border rounded-full flex items-center justify-center ${isSelected ? 'border-indigo-600 bg-indigo-600' : 'border-neutral-300'}`}>
+                                  {isSelected && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                                </div>
                               </div>
                             </div>
-                          ))}
-                        </div>
-
-                        <div className="pt-3 border-t border-dashed border-neutral-200">
-                          <button
-                            type="button"
-                            onClick={() => setShowCatForm(true)}
-                            className="inline-flex items-center gap-1.5 font-mono text-xs font-black uppercase text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" /> Yangi Kategoriya Qo'shish
-                          </button>
-                        </div>
+                          );
+                        })}
                       </div>
-                    ) : (
-                      /* Inline Category Add Form */
-                      <form onSubmit={handleCreateCategory} className="border border-indigo-100 p-4 space-y-3 bg-indigo-50/10 rounded-lg">
-                        <h4 className="font-mono text-xs uppercase font-extrabold text-indigo-950 flex items-center gap-1.5">
-                          YANGI CATEGORIYA QO'SHISH Formasi
-                        </h4>
-                        
-                        {catError && <p className="text-xs text-red-600 bg-red-50 p-2 border border-red-200 rounded">{catError}</p>}
-                        
-                        <div className="grid grid-cols-1 gap-2.5">
-                          <div>
-                            <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-500 mb-1">
-                              Kategoriya nomi (*)
-                            </label>
-                            <input
-                              type="text"
-                              value={newCatName}
-                              onChange={(e) => setNewCatName(e.target.value)}
-                              placeholder="Masalan: Baho reyting varaqasi"
-                              className="w-full bg-white border border-neutral-300 px-3 py-1.5 text-xs rounded focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-500 mb-1">
-                              Qisqacha tavsifi (Ixtiyoriy)
-                            </label>
-                            <input
-                              type="text"
-                              value={newCatDesc}
-                              onChange={(e) => setNewCatDesc(e.target.value)}
-                              placeholder="Kategoriya uchun qisqa sharh kiriting..."
-                              className="w-full bg-white border border-neutral-300 px-3 py-1.5 text-xs rounded focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2 justify-end pt-1">
-                          <button
-                            type="button"
-                            onClick={() => { setShowCatForm(false); setCatError(""); }}
-                            className="px-3 py-1 border border-neutral-300 hover:border-indigo-500 rounded font-mono text-[10px] uppercase cursor-pointer text-slate-700 transition-all"
-                          >
-                            Bekor qilish
-                          </button>
-                          <button
-                            type="submit"
-                            className="px-3 py-1 bg-indigo-600 text-white hover:bg-indigo-700 rounded font-mono text-[10px] uppercase font-bold cursor-pointer transition-all"
-                          >
-                            Saqlash
-                          </button>
-                        </div>
-                      </form>
-                    )}
+                    </div>
                   </div>
                 </motion.div>
               )}
 
-              {/* STEP 2: STUDENT SPECIFICATION */}
+              {/* STEP 2: CATEGORY SPECIFIC METADATA */}
               {step === 2 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-                  <div className="flex justify-between items-center border-b border-indigo-100/60 pb-2">
-                    <h3 className="font-sans font-bold uppercase text-sm tracking-widest text-indigo-950">
-                      2-Bosqich: O'quvchi (Talaba) ma'lumotlari
-                    </h3>
-                    <span className="font-mono text-[10px] text-neutral-400 uppercase tracking-widest">majburiy</span>
-                  </div>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                  
+                  {/* Category = Institut */}
+                  {categoryId === "cat-institut" && (
+                    <div className="space-y-5">
+                      <div className="flex justify-between items-center border-b border-indigo-100/60 pb-2">
+                        <h3 className="font-sans font-bold uppercase text-sm tracking-widest text-indigo-950">
+                          2-Bosqich: Hujjat ma'lumotlari (Institut)
+                        </h3>
+                        <span className="font-mono text-[10px] text-neutral-400 uppercase tracking-widest">majburiy</span>
+                      </div>
 
-                  {/* Mode Selector */}
-                  <div className="grid grid-cols-2 gap-4 border border-indigo-100 p-1 bg-indigo-50/20 rounded-lg">
-                    <button
-                      type="button"
-                      onClick={() => setStudentMode("existing")}
-                      className={`py-2 px-3 tracking-wider font-mono text-xs uppercase font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all rounded ${studentMode === "existing" ? "bg-indigo-600 text-white shadow-sm" : "text-indigo-700 hover:bg-indigo-50/40"}`}
-                    >
-                      <Users className="w-3.5 h-3.5" /> Mavjud talabani qidirish
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setStudentMode("new")}
-                      className={`py-2 px-3 tracking-wider font-mono text-xs uppercase font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all rounded ${studentMode === "new" ? "bg-indigo-600 text-white shadow-sm" : "text-indigo-700 hover:bg-indigo-50/40"}`}
-                    >
-                      <UserPlus className="w-3.5 h-3.5" /> Yangi talaba qo'shish
-                    </button>
-                  </div>
+                      <div className="grid grid-cols-1 gap-5">
+                        <div>
+                          <label className="block text-xs font-mono uppercase tracking-wider text-neutral-500 mb-1.5 font-semibold">
+                            Hujjat nomi yoki raqamini kiriting (*)
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={docName}
+                            onChange={(e) => setDocName(e.target.value)}
+                            placeholder="Masalan: Bo'yruq № 312 yoki Nizom"
+                            className="w-full bg-white border border-neutral-300 px-3.5 py-2 text-sm rounded-lg focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
+                          />
+                        </div>
 
-                  {studentMode === "existing" ? (
-                    /* Existing student Search selection */
-                    <div className="space-y-3.5">
-                      <label className="block text-xs font-mono uppercase tracking-wider text-neutral-500 mb-1 font-semibold">
-                        Arxivdagi talabalar ro'yxatidan tanlang (*)
-                      </label>
-                      <select
-                        value={selectedStudentId}
-                        onChange={(e) => setSelectedStudentId(e.target.value)}
-                        className="w-full bg-white border border-neutral-300 px-3 py-2 text-sm rounded focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all cursor-pointer"
-                      >
-                        <option value="">-- Talabani tanlang --</option>
-                        {existingStudents.map((std) => (
-                          <option key={std.id} value={std.id}>
-                            {std.lastName} {std.firstName} {std.middleName || ""} - Guruh: {std.groupName || "N/A"} &middot; HEMIS: {std.studentId || "N/A"}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-[10px] text-neutral-400 leading-normal font-mono uppercase bg-neutral-50 p-2 border border-neutral-200">
-                        * TAVSIYA: Biznes duplications pasaytirish uchun o'quvchi kodi (student ID/HEMIS) borligini tekshiring.
-                      </p>
-                    </div>
-                  ) : (
-                    /* Complete New student Form layout */
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1 font-semibold">
-                          Familiyasi (*)
-                        </label>
-                         <input
-                          type="text"
-                          required
-                          value={lastName}
-                          onChange={(e) => setLastName(e.target.value)}
-                          placeholder="Faqat harflar (kamida 2 xona)"
-                          className="w-full bg-white border border-neutral-300 px-3 py-1.5 text-xs rounded focus:border-indigo-600 outline-hidden focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1 font-semibold">
-                          Ismi (*)
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={firstName}
-                          onChange={(e) => setFirstName(e.target.value)}
-                          placeholder="Faqat harflar"
-                          className="w-full bg-white border border-neutral-300 px-3 py-1.5 text-xs rounded focus:border-indigo-600 outline-hidden focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
-                          Otasining ismi
-                        </label>
-                        <input
-                          type="text"
-                          value={middleName}
-                          onChange={(e) => setMiddleName(e.target.value)}
-                          placeholder="Karimovich yoki Rustamovna"
-                          className="w-full bg-white border border-neutral-300 px-3 py-1.5 text-xs rounded focus:border-indigo-600 outline-hidden focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
-                          Guruh raqami / yo'nalishi
-                        </label>
-                        <input
-                          type="text"
-                          value={groupName}
-                          onChange={(e) => setGroupName(e.target.value)}
-                          placeholder="Qisqa guruh kodi, masalan: IF-20"
-                          className="w-full bg-white border border-neutral-300 px-3 py-1.5 text-xs rounded focus:border-indigo-600 outline-hidden focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
-                          Tug'ilgan sanasi
-                        </label>
-                        <input
-                          type="date"
-                          value={birthDate}
-                          onChange={(e) => setBirthDate(e.target.value)}
-                          className="w-full bg-white border border-neutral-300 px-3 py-1.5 text-xs rounded focus:border-indigo-600 outline-hidden focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
-                          Telefon raqami
-                        </label>
-                        <input
-                          type="text"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          placeholder="+998 90 123 45 67"
-                          className="w-full bg-white border border-neutral-300 px-3 py-1.5 text-xs rounded focus:border-indigo-600 outline-hidden focus:ring-1 focus:ring-indigo-100 transition-all font-mono"
-                        />
+                        <div>
+                          <label className="block text-xs font-mono uppercase tracking-wider text-neutral-500 mb-1.5 font-semibold">
+                            Chiqarilgan sanasini kiriting (*)
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            value={docDate}
+                            onChange={(e) => setDocDate(e.target.value)}
+                            className="w-full bg-white border border-neutral-300 px-3.5 py-2 text-sm rounded-lg focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
+                          />
+                        </div>
                       </div>
                     </div>
                   )}
+
+                  {/* Category = Xodim */}
+                  {categoryId === "cat-xodim" && (
+                    <div className="space-y-5">
+                      <div className="flex justify-between items-center border-b border-indigo-100/60 pb-2">
+                        <h3 className="font-sans font-bold uppercase text-sm tracking-widest text-indigo-950">
+                          2-Bosqich: Xodim hamda hujjat ma'lumotlari
+                        </h3>
+                        <span className="font-mono text-[10px] text-neutral-400 uppercase tracking-widest">majburiy</span>
+                      </div>
+
+                      {/* Mode Selector */}
+                      <div className="grid grid-cols-2 gap-4 border border-indigo-100 p-1 bg-indigo-50/20 rounded-lg">
+                        <button
+                          type="button"
+                          onClick={() => setEmployeeMode("existing")}
+                          className={`py-2 px-3 tracking-wider font-mono text-xs uppercase font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all rounded ${employeeMode === "existing" ? "bg-indigo-600 text-white shadow-sm" : "text-indigo-700 hover:bg-indigo-50/40"}`}
+                        >
+                          <Users className="w-3.5 h-3.5" /> Mavjud xodimni qidirish
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEmployeeMode("new")}
+                          className={`py-2 px-3 tracking-wider font-mono text-xs uppercase font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all rounded ${employeeMode === "new" ? "bg-indigo-600 text-white shadow-sm" : "text-indigo-700 hover:bg-indigo-50/40"}`}
+                        >
+                          <UserPlus className="w-3.5 h-3.5" /> Yangi xodim qo'shish
+                        </button>
+                      </div>
+
+                      {employeeMode === "existing" ? (
+                        <div className="space-y-3.5">
+                          <label className="block text-xs font-mono uppercase tracking-wider text-neutral-500 font-semibold mb-1">
+                            Arxivdagi xodimlar ro'yxatidan tanlang (*)
+                          </label>
+                          <select
+                            value={selectedEmployeeId}
+                            onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                            className="w-full bg-white border border-neutral-300 px-3 py-2 text-sm rounded-lg focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all cursor-pointer"
+                          >
+                            <option value="">-- Xodimni tanlang --</option>
+                            {existingEmployees.map((emp) => (
+                              <option key={emp.id} value={emp.id}>
+                                {emp.lastName} {emp.firstName} {emp.middleName || ""} - Kafedra: {emp.department || "N/A"} &middot; Lavozim: {emp.position || "N/A"} &middot; ID: {emp.employeeId || "N/A"}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : (
+                        /* New Employee Form */
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-indigo-50/40 p-4 bg-indigo-50/10 rounded-xl">
+                          <div className="md:col-span-2 font-mono text-[10px] text-indigo-700 uppercase font-bold">
+                            Yangi xodim ma'lumotlari:
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1 font-semibold">
+                              Familiyasi (*)
+                            </label>
+                            <input
+                              type="text"
+                              value={employeeLastName}
+                              onChange={(e) => setEmployeeLastName(e.target.value)}
+                              placeholder="Familiyasi"
+                              className="w-full bg-white border border-neutral-300 px-3 py-1.5 text-xs rounded focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1 font-semibold">
+                              Ismi (*)
+                            </label>
+                            <input
+                              type="text"
+                              value={employeeFirstName}
+                              onChange={(e) => setEmployeeFirstName(e.target.value)}
+                              placeholder="Ismi"
+                              className="w-full bg-white border border-neutral-300 px-3 py-1.5 text-xs rounded focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                              Otasining ismi
+                            </label>
+                            <input
+                              type="text"
+                              value={employeeMiddleName}
+                              onChange={(e) => setEmployeeMiddleName(e.target.value)}
+                              placeholder="Otasining ismi"
+                              className="w-full bg-white border border-neutral-300 px-3 py-1.5 text-xs rounded focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                              Tababel raqami / ID
+                            </label>
+                            <input
+                              type="text"
+                              value={employeeRegId}
+                              onChange={(e) => setEmployeeRegId(e.target.value)}
+                              placeholder="Masalan: T-4190"
+                              className="w-full bg-white border border-neutral-300 px-3 py-1.5 text-xs rounded focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                              Kafedrasi / Bo'limi
+                            </label>
+                            <input
+                              type="text"
+                              value={employeeDepartment}
+                              onChange={(e) => setEmployeeDepartment(e.target.value)}
+                              placeholder="Fizika kafedrasi"
+                              className="w-full bg-white border border-neutral-300 px-3 py-1.5 text-xs rounded focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                              Lavozimi
+                            </label>
+                            <input
+                              type="text"
+                              value={employeePosition}
+                              onChange={(e) => setEmployeePosition(e.target.value)}
+                              placeholder="Katta o'qituvchi"
+                              className="w-full bg-white border border-neutral-300 px-3 py-1.5 text-xs rounded focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                              Telefon raqami
+                            </label>
+                            <input
+                              type="text"
+                              value={employeePhone}
+                              onChange={(e) => setEmployeePhone(e.target.value)}
+                              placeholder="+998 90..."
+                              className="w-full bg-white border border-neutral-300 px-3 py-1.5 text-xs rounded focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all font-mono"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Employee Document details fields */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-neutral-200/60 pt-4">
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-mono uppercase tracking-wider text-neutral-500 mb-1.5 font-semibold">
+                            Hujjat nomi yoki raqamini kiriting (*)
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={docName}
+                            onChange={(e) => setDocName(e.target.value)}
+                            placeholder="Hujjat nomi yoki uning tartib raqami"
+                            className="w-full bg-white border border-neutral-300 px-3.5 py-2 text-sm rounded-lg focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-mono uppercase tracking-wider text-neutral-500 mb-1.5 font-semibold">
+                            Chiqarilgan sanasi (Joriy etilgan) (*)
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            value={docDate}
+                            onChange={(e) => setDocDate(e.target.value)}
+                            className="w-full bg-white border border-neutral-300 px-3.5 py-2 text-sm rounded-lg focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Category = Talaba */}
+                  {categoryId === "cat-talaba" && (
+                    <div className="space-y-5">
+                      <div className="flex justify-between items-center border-b border-indigo-100/60 pb-2">
+                        <h3 className="font-sans font-bold uppercase text-sm tracking-widest text-indigo-950">
+                          2-Bosqich: Hujjat ma'lumotlari (Talaba)
+                        </h3>
+                        <span className="font-mono text-[10px] text-neutral-400 uppercase tracking-widest">majburiy</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-5">
+                        <div>
+                          <label className="block text-xs font-mono uppercase tracking-wider text-neutral-500 mb-1.5 font-semibold">
+                            Hujjat nomi yoki raqamini kiriting (*)
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={docName}
+                            onChange={(e) => setDocName(e.target.value)}
+                            placeholder="Kiritilayotgan hujjat nomi yoki raqami"
+                            className="w-full bg-white border border-neutral-300 px-3.5 py-2 text-sm rounded-lg focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-mono uppercase tracking-wider text-neutral-500 mb-1.5 font-semibold">
+                            Joriy etilgan sanasini tanlang (*)
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            value={docDate}
+                            onChange={(e) => setDocDate(e.target.value)}
+                            className="w-full bg-white border border-neutral-300 px-3.5 py-2 text-sm rounded-lg focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                 </motion.div>
               )}
 

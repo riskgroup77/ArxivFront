@@ -31,6 +31,7 @@ export default function SearchTab({ initialFilters }: SearchTabProps) {
   const [cabinetId, setCabinetId] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [docDate, setDocDate] = useState("");
   const [status, setStatus] = useState("");
   const { t } = useTranslation();
   
@@ -87,6 +88,7 @@ export default function SearchTab({ initialFilters }: SearchTabProps) {
         q,
         categoryId: overrideParams?.categoryId !== undefined ? overrideParams.categoryId : categoryId,
         cabinetId: overrideParams?.cabinetId !== undefined ? overrideParams.cabinetId : cabinetId,
+        docDate: overrideParams?.docDate !== undefined ? overrideParams.docDate : docDate,
         dateFrom,
         dateTo,
         status,
@@ -108,11 +110,12 @@ export default function SearchTab({ initialFilters }: SearchTabProps) {
     setQ("");
     setCategoryId("");
     setCabinetId("");
+    setDocDate("");
     setDateFrom("");
     setDateTo("");
     setStatus("");
     setTimeout(() => {
-      searchDocuments({ categoryId: "", cabinetId: "" });
+      searchDocuments({ categoryId: "", cabinetId: "", docDate: "" });
     }, 50);
   };
 
@@ -214,15 +217,15 @@ export default function SearchTab({ initialFilters }: SearchTabProps) {
           {/* Main lookup text */}
           <div className="md:col-span-2">
             <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1 font-semibold">
-              {t("Ism-Familiya / Student ID / Izoh matni")}
+              {t("Hujjat nomi / Xodim ism familiyasi")}
             </label>
             <div className="relative">
               <input
                 type="text"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder={t("Qirqish uchun ism yoki HEMIS kodini kiriting...")}
-                className="w-full bg-white border border-neutral-300 px-3 py-2 text-sm rounded focus:border-indigo-500 outline-none focus:ring-1 focus:ring-indigo-150 transition-all text-sm"
+                placeholder={t("Qidirish uchun qiymat kiriting...")}
+                className="w-full bg-white border border-neutral-300 px-3 py-2 text-sm rounded-lg focus:border-indigo-500 outline-none focus:ring-1 focus:ring-indigo-150 transition-all text-sm font-sans"
               />
               {q && (
                 <button 
@@ -243,28 +246,11 @@ export default function SearchTab({ initialFilters }: SearchTabProps) {
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full bg-white border border-neutral-300 px-3 py-2 text-sm rounded focus:border-indigo-500 outline-none focus:ring-1 focus:ring-indigo-150 transition-all cursor-pointer text-sm"
+              className="w-full bg-white border border-neutral-300 px-3 py-2 text-sm rounded-lg focus:border-indigo-500 outline-none focus:ring-1 focus:ring-indigo-150 transition-all cursor-pointer text-sm"
             >
               <option value="">{t("Barchasi (All)")}</option>
-              {categories.map((cat) => (
+              {categories.filter(c => ["cat-institut", "cat-xodim", "cat-talaba"].includes(c.id)).map((cat) => (
                 <option key={cat.id} value={cat.id}>{t(cat.name)}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Cabinet Select */}
-          <div>
-            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1 font-semibold">
-              {t("Arxiv Shkafi")}
-            </label>
-            <select
-              value={cabinetId}
-              onChange={(e) => setCabinetId(e.target.value)}
-              className="w-full bg-white border border-neutral-300 px-3 py-2 text-sm rounded focus:border-indigo-500 outline-none focus:ring-1 focus:ring-indigo-150 transition-all cursor-pointer text-sm"
-            >
-              <option value="">{t("Barchasi (All)")}</option>
-              {cabinets.map((cab) => (
-                <option key={cab.id} value={cab.id}>{t(cab.name)}</option>
               ))}
             </select>
           </div>
@@ -272,41 +258,27 @@ export default function SearchTab({ initialFilters }: SearchTabProps) {
           {/* Date from */}
           <div>
             <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1 font-semibold">
-              {t("Qabul boshlanish sanasi")}
+              {t("Hujjat sanasini belgilang")}
             </label>
             <input
               type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full bg-white border border-neutral-300 px-3 py-2 text-sm rounded focus:border-indigo-500 outline-none focus:ring-1 focus:ring-indigo-150 transition-all text-sm"
+              value={docDate}
+              onChange={(e) => setDocDate(e.target.value)}
+              className="w-full bg-white border border-neutral-300 px-3 py-2 text-sm rounded-lg focus:border-indigo-500 outline-none focus:ring-1 focus:ring-indigo-150 transition-all text-sm font-sans"
             />
           </div>
 
-          {/* Date to */}
-          <div>
-            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-500 mb-1 font-semibold">
-              {t("Qabul tugash sanasi")}
-            </label>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="w-full bg-white border border-neutral-300 px-3 py-2 text-sm rounded focus:border-indigo-500 outline-none focus:ring-1 focus:ring-indigo-150 transition-all text-sm"
-            />
-          </div>
-
-          {/* Actions button */}
-          <div className="flex items-end gap-2 md:col-span-2">
+          <div className="md:col-span-4 flex justify-end gap-2 pt-1 border-t border-dashed border-neutral-150">
             <button
               onClick={() => searchDocuments()}
               disabled={loading}
-              className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 border border-transparent font-mono font-bold text-xs uppercase px-4 py-2.5 flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0 rounded-lg shadow-md shadow-indigo-100/40"
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-mono font-bold text-xs uppercase flex items-center justify-center gap-2 transition-all cursor-pointer rounded-lg shadow-md shadow-indigo-100/40"
             >
               <Search className="w-3.5 h-3.5" /> {t("Qidirish")}
             </button>
             <button
               onClick={handleReset}
-              className="bg-white text-slate-700 border border-slate-300 hover:border-indigo-500 hover:bg-slate-50 font-mono text-xs px-3 py-2.5 flex items-center justify-center cursor-pointer shrink-0 rounded-lg transition-all"
+              className="px-4 py-2.5 bg-white text-slate-700 border border-slate-300 hover:border-indigo-500 hover:bg-slate-50 font-mono text-xs flex items-center justify-center cursor-pointer rounded-lg transition-all"
               title={t("Tozalash")}
             >
               {t("Tozalash")}

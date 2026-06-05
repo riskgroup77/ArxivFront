@@ -39,6 +39,19 @@ export interface Student {
   updatedAt: string;
 }
 
+export interface Employee {
+  id: string;
+  lastName: string;
+  firstName: string;
+  middleName?: string;
+  employeeId?: string; // Unique Employee ID/Tababel number
+  department?: string; // Kafedra yoki kafedra nomi
+  position?: string; // Lavozimi
+  phone?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -58,8 +71,12 @@ export interface Cabinet {
 
 export interface Document {
   id: string;
-  studentId: string;
+  studentId?: string;
+  employeeId?: string;
   categoryId: string;
+  docName?: string;
+  docDate?: string;
+  personType?: "student" | "employee" | "none";
   cabinetId: string;
   floor: number;
   filePath: string; // virtual path or base64 data key
@@ -76,6 +93,7 @@ export interface Document {
   deletedAt?: string;
   // Join fields for convenience in API responses
   student?: Student;
+  employee?: Employee;
   category?: Category;
   cabinet?: Cabinet;
   receiver?: { fullName: string };
