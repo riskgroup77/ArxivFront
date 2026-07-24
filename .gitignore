@@ -6,3 +6,5 @@ coverage/
 *.log
 .env*
 !.env.example
+scripts/deploy.py
+scripts/server_probe*.py
