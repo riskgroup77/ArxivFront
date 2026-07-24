@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -140,44 +140,47 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
     setLoading(true);
     setGlobalError(null);
 
-    // Payload Assembly
-    const payload: any = {
-      categoryId,
-      docName,
-      docDate,
-      cabinetId,
-      floor: Number(floor),
-      pdfFilename: file?.name || "arxiv_hujjat.pdf",
-      pdfBase64,
-      notes,
-    };
-
-    if (categoryId === "cat-talaba") {
-      payload.personType = "none";
-    } else if (categoryId === "cat-xodim") {
-      payload.personType = "employee";
-      if (employeeMode === "existing") {
-        if (!selectedEmployeeId) {
-          setGlobalError("Mavjud xodimni tanlang!");
-          setLoading(false);
-          return;
-        }
-        payload.employeeId = selectedEmployeeId;
-      } else {
-        payload.employeeFirstName = employeeFirstName;
-        payload.employeeLastName = employeeLastName;
-        payload.employeeMiddleName = employeeMiddleName;
-        payload.employeeRegId = employeeRegId;
-        payload.employeeDepartment = employeeDepartment;
-        payload.employeePosition = employeePosition;
-        payload.employeePhone = employeePhone;
-      }
-    } else {
-      payload.personType = "none";
+    if (!categoryId) {
+      setGlobalError("Kategoriya tanlanmagan");
+      setLoading(false);
+      return;
     }
 
+    if (!docName.trim()) {
+      setGlobalError("Hujjat nomi kiritilishi shart");
+      setLoading(false);
+      return;
+    }
+
+    if (categoryId === "cat-xodim") {
+      if (employeeMode === "existing" && !selectedEmployeeId) {
+        setGlobalError("Mavjud xodimni tanlang!");
+        setLoading(false);
+        return;
+      }
+    }
+
+    const formData = new FormData();
+    formData.append("category_id", categoryId);
+    formData.append("cabinet_id", cabinetId);
+    formData.append("floor", String(floor));
+    formData.append("doc_name", docName.trim());
+    if (docDate) formData.append("doc_date", docDate);
+
+    if (categoryId === "cat-xodim") {
+      formData.append("person_type", "employee");
+      if (selectedEmployeeId) {
+        formData.append("employee_id", selectedEmployeeId);
+      }
+    } else {
+      formData.append("person_type", "none");
+    }
+
+    if (notes) formData.append("notes", notes);
+    if (file) formData.append("file", file);
+
     try {
-      await api.createDocument(payload);
+      await api.createDocument(formData);
       setSuccess(true);
     } catch (err: any) {
       setGlobalError(err.message || "Hujjat qabul qilinishida xatolik yuz berdi");
@@ -264,7 +267,7 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
       }
       return false;
     }
-    if (step === 3) return !!pdfBase64;
+    if (step === 3) return !!file;
     if (step === 4) {
       if (!cabinetId || !floor) return false;
       const cab = cabinets.find(c => c.id === cabinetId);
@@ -431,7 +434,7 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
                             required
                             value={docName}
                             onChange={(e) => setDocName(e.target.value)}
-                            placeholder="Masalan: Bo'yruq № 312 yoki Nizom"
+                            placeholder="Masalan: Bo'yruq тДЦ 312 yoki Nizom"
                             className="w-full bg-white border border-neutral-300 px-3.5 py-2 text-sm rounded-lg focus:border-indigo-600 outline-none focus:ring-1 focus:ring-indigo-100 transition-all font-sans"
                           />
                         </div>
@@ -766,7 +769,7 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
                       />
                       {selectedCabinet && (
                         <p className="text-[10px] text-indigo-650 font-bold uppercase tracking-wider font-mono mt-1">
-                          Varaqa formati: «{selectedCabinet.name}, {floor || "N"}-qavat»
+                          Varaqa formati: ┬л{selectedCabinet.name}, {floor || "N"}-qavat┬╗
                         </p>
                       )}
                     </div>

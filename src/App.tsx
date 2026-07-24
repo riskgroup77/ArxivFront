@@ -12,7 +12,7 @@ import IntakeTab from "./components/IntakeTab.tsx";
 import RepositoryTab from "./components/RepositoryTab.tsx";
 import SettingsTab from "./components/SettingsTab.tsx";
 import AdminTab from "./components/AdminTab.tsx";
-import { removeAuthToken } from "./api.ts";
+import { api, removeAuthToken } from "./api.ts";
 import { Menu, Languages } from "lucide-react";
 import { useTranslation } from "./components/LanguageContext.tsx";
 
@@ -23,17 +23,15 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const { lang, setLang, t } = useTranslation();
 
-  // Restore authenticated session on mount
+  // Restore authenticated session on mount (validate token with /auth/me)
   useEffect(() => {
-    const savedUser = localStorage.getItem("arxiv_user");
-    const savedToken = localStorage.getItem("arxiv_auth_token");
-    if (savedUser && savedToken) {
-      try {
-        setCurrentUser(JSON.parse(savedUser));
-      } catch (e) {
-        removeAuthToken();
-      }
-    }
+    const savedToken = localStorage.getItem("arxiv_access_token") || localStorage.getItem("arxiv_auth_token");
+    if (!savedToken) return;
+
+    api
+      .getMe()
+      .then((user) => setCurrentUser(user))
+      .catch(() => removeAuthToken());
   }, []);
 
   const handleLoginSuccess = (user: any) => {
@@ -41,8 +39,12 @@ export default function App() {
     setActiveTab("dashboard");
   };
 
-  const handleLogout = () => {
-    removeAuthToken();
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+    } catch {
+      removeAuthToken();
+    }
     setCurrentUser(null);
   };
 

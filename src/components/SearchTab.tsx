@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { api } from "../api.js";
+import { api, fetchPdfBlob, getStudentDisplayName } from "../api.js";
 import { 
   Search, 
   X, 
@@ -48,6 +48,27 @@ export default function SearchTab({ initialFilters }: SearchTabProps) {
   // Selected Doc for Drawer
   const [selectedDoc, setSelectedDoc] = useState<any>(null);
   const [printSlipDoc, setPrintSlipDoc] = useState<any>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedDoc?.id) {
+      setPdfPreviewUrl(null);
+      return;
+    }
+    let revoked = false;
+    let objectUrl: string | null = null;
+    fetchPdfBlob(selectedDoc)
+      .then((blob) => {
+        if (revoked) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPdfPreviewUrl(objectUrl);
+      })
+      .catch(() => setPdfPreviewUrl(null));
+    return () => {
+      revoked = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [selectedDoc?.id]);
 
   // Load categories & cabinets for filters
   useEffect(() => {
@@ -137,9 +158,7 @@ export default function SearchTab({ initialFilters }: SearchTabProps) {
   // Download PDF file cleanly
   const handleDownloadPdf = async (doc: any) => {
     try {
-      const response = await fetch(`/api/documents/pdf/${doc.id}?download=true`);
-      if (!response.ok) throw new Error("Server error " + response.status);
-      const blob = await response.blob();
+      const blob = await fetchPdfBlob(doc, true);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -156,9 +175,7 @@ export default function SearchTab({ initialFilters }: SearchTabProps) {
   // Print PDF file cleanly
   const handlePrintPdf = async (doc: any) => {
     try {
-      const response = await fetch(`/api/documents/pdf/${doc.id}`);
-      if (!response.ok) throw new Error("Server error " + response.status);
-      const blob = await response.blob();
+      const blob = await fetchPdfBlob(doc);
       const url = window.URL.createObjectURL(blob);
 
       const iframe = document.createElement("iframe");
@@ -339,7 +356,7 @@ export default function SearchTab({ initialFilters }: SearchTabProps) {
                   onClick={() => setSelectedDoc(doc)}
                 >
                   <td className="py-3 px-3 font-medium text-neutral-900">
-                    {doc.student ? `${t(doc.student.lastName)} ${t(doc.student.firstName)} ${t(doc.student.middleName || "")}` : t("Noma'lum O'quvchi")}
+                    {t(getStudentDisplayName(doc) || "Noma'lum O'quvchi")}
                   </td>
                   <td className="py-3 px-3 font-mono text-neutral-600">
                     {doc.student?.studentId || <span className="text-neutral-300">-</span>}
@@ -457,7 +474,7 @@ export default function SearchTab({ initialFilters }: SearchTabProps) {
                       <div>
                         <span className="block text-[10px] font-mono text-neutral-400 uppercase">{t("Familiya, Ism, Otasining ismi")}</span>
                         <span className="font-semibold text-black">
-                          {selectedDoc.student ? `${t(selectedDoc.student.lastName)} ${t(selectedDoc.student.firstName)} ${t(selectedDoc.student.middleName || "")}` : t("Noma'lum")}
+                          {t(getStudentDisplayName(selectedDoc) || "Noma'lum")}
                         </span>
                       </div>
                       <div>
@@ -544,11 +561,16 @@ export default function SearchTab({ initialFilters }: SearchTabProps) {
                     </div>
                     {/* Render Real interactive local PDF inside iframe, fallback to message */}
                     <div className="border border-indigo-100 rounded-xl overflow-hidden bg-neutral-50 relative">
-                      <iframe 
-                        src={`/api/documents/pdf/${selectedDoc.id}`} 
-                        className="w-full h-80 z-10 relative bg-white" 
+                      <iframe
+                        src={pdfPreviewUrl || undefined}
+                        className="w-full h-80 z-10 relative bg-white"
                         title="PDF file preview"
                       ></iframe>
+                      {!pdfPreviewUrl && (
+                        <p className="absolute inset-0 flex items-center justify-center text-xs text-neutral-400 font-mono uppercase">
+                          {t("Sessiya tekshirilmoqda yoki PDF fayl serverda mavjud emas")}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -607,7 +629,7 @@ export default function SearchTab({ initialFilters }: SearchTabProps) {
                 <div>
                   <span className="block text-[10px] uppercase text-neutral-500 font-bold">{t("Talaba:")}</span>
                   <span className="font-bold text-sm block">
-                    {printSlipDoc.student ? `${t(printSlipDoc.student.lastName)} ${t(printSlipDoc.student.firstName)} ${t(printSlipDoc.student.middleName || "")}` : t("Noma'lum")}
+                    {t(getStudentDisplayName(printSlipDoc) || "Noma'lum")}
                   </span>
                   <span className="text-xs text-neutral-500">{t("ID kodi:")} {printSlipDoc.student?.studentId || "-"} &middot; {t("Guruhi:")} {printSlipDoc.student?.groupName || "-"}</span>
                 </div>

@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { api } from "../api.js";
+import { api, fetchPdfBlob, getStudentDisplayName } from "../api.js";
 import { DocumentStatus, UserRole } from "../types.js";
 import { 
   FileText, 
@@ -146,20 +146,17 @@ export default function RepositoryTab({ currentUser }: RepositoryTabProps) {
         finalNotes = `${editNotes}\n[Qabul: Kimga berildi: ${statusNotesAdd.trim()} - Sana: ${new Date().toLocaleDateString()}]`;
       }
 
-      const payload: any = {
+      const studentName = getStudentDisplayName(editDoc);
+      await api.updateDocument(editDoc.id, {
         status: editStatus,
         categoryId: editCategoryId,
         cabinetId: editCabinetId,
         floor: Number(editFloor),
-        notes: finalNotes
-      };
-
-      if (editFileBase64) {
-        payload.pdfBase64 = editFileBase64;
-        payload.pdfFilename = editFile?.name;
-      }
-
-      await api.updateDocument(editDoc.id, payload);
+        notes: finalNotes,
+        studentName: studentName || undefined,
+        groupName: editDoc.student?.groupName,
+        studentBirthDate: editDoc.student?.birthDate,
+      });
       setEditDoc(null);
       loadRepository();
     } catch (err: any) {
@@ -187,9 +184,7 @@ export default function RepositoryTab({ currentUser }: RepositoryTabProps) {
   // Download PDF file cleanly
   const handleDownloadPdf = async (doc: any) => {
     try {
-      const response = await fetch(`/api/documents/pdf/${doc.id}?download=true`);
-      if (!response.ok) throw new Error("Server error " + response.status);
-      const blob = await response.blob();
+      const blob = await fetchPdfBlob(doc, true);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -206,9 +201,7 @@ export default function RepositoryTab({ currentUser }: RepositoryTabProps) {
   // Print PDF file cleanly
   const handlePrintPdf = async (doc: any) => {
     try {
-      const response = await fetch(`/api/documents/pdf/${doc.id}`);
-      if (!response.ok) throw new Error("Server error " + response.status);
-      const blob = await response.blob();
+      const blob = await fetchPdfBlob(doc);
       const url = window.URL.createObjectURL(blob);
 
       const iframe = document.createElement("iframe");
@@ -337,7 +330,7 @@ export default function RepositoryTab({ currentUser }: RepositoryTabProps) {
             </thead>
             <tbody className="divide-y divide-neutral-200 text-xs">
               {documents.map((doc) => {
-                const stdName = doc.student ? `${doc.student.lastName} ${doc.student.firstName}` : "N/A";
+                const stdName = getStudentDisplayName(doc) || "N/A";
                 return (
                   <tr key={doc.id} className="hover:bg-neutral-50 font-sans">
                     <td className="py-2.5 px-3">
@@ -438,7 +431,7 @@ export default function RepositoryTab({ currentUser }: RepositoryTabProps) {
                   <div className="space-y-2 border-b border-neutral-100 pb-3">
                     <h4 className="font-mono text-[10px] uppercase text-neutral-400 font-bold mb-1">O'quvchi rekvizitlari:</h4>
                     <p className="font-bold text-sm text-black">
-                      {inspectDoc.student ? `${inspectDoc.student.lastName} ${inspectDoc.student.firstName} ${inspectDoc.student.middleName || ""}` : "Noma'lum"}
+                      {getStudentDisplayName(inspectDoc) || "Noma'lum"}
                     </p>
                     <p className="font-mono text-neutral-600">
                       HEMIS ID: {inspectDoc.student?.studentId || "Yo'q"} &middot; Guruhi: {inspectDoc.student?.groupName || "Noma'lum"} &middot; Telefon: {inspectDoc.student?.phone || "Kiritilmagan"}

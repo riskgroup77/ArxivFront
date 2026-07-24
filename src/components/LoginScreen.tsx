@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from "react";
-import { api, setAuthToken } from "../api.js";
+import { api } from "../api.js";
 import { LogIn, Key, UserCheck, Languages } from "lucide-react";
 import { motion } from "motion/react";
 import { useTranslation } from "./LanguageContext.tsx";
@@ -32,8 +32,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
     try {
       const data = await api.login(username.trim(), password.trim());
-      setAuthToken(data.token);
-      localStorage.setItem("arxiv_user", JSON.stringify(data.user));
       onLoginSuccess(data.user);
     } catch (err: any) {
       setError(err.message || t("Tizimga kirishda xatolik yuz berdi"));
@@ -180,19 +178,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             </span>
             <div className="grid grid-cols-1 gap-2.5 font-mono text-[11px] text-neutral-600 bg-neutral-50/50 p-3 border border-neutral-200 rounded-xl">
               <div className="flex justify-between">
-                <span>Admin: <strong className="text-black">admin</strong> / 123</span>
+                <span>Admin: <strong className="text-black">admin</strong></span>
                 <span className="text-neutral-300">→</span>
-                <span>admin123</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Employee: <strong className="text-black">xodim</strong> / 123</span>
-                <span className="text-neutral-300">→</span>
-                <span>xodim123</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Viewer: <strong className="text-black">viewer</strong> / 123</span>
-                <span className="text-neutral-300">→</span>
-                <span>viewer123</span>
+                <span>Admin@123456</span>
               </div>
             </div>
           </div>
