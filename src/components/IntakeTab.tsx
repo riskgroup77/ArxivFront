@@ -110,10 +110,10 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
       return;
     }
 
-    // Limit 20MB check
-    const maxSize = 20 * 1024 * 1024;
+    // Limit 100MB check
+    const maxSize = 100 * 1024 * 1024;
     if (selectedFile.size > maxSize) {
-      setFileError("Fayl hajmi 20 MB dan ko'p bo'lmasligi lozim");
+      setFileError("Fayl hajmi 100 MB dan ko'p bo'lmasligi lozim");
       return;
     }
 
@@ -241,7 +241,7 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
     return [
       { num: 1, label: "Kategoriya tanlash", icon: FolderPlus, desc: "Soha bo'limini tanlang" },
       { num: 2, label: secondStepLabel, icon: UserPlus, desc: secondStepDesc },
-      { num: 3, label: "PDF nusxasi", icon: FileUp, desc: "Maksimal hajm: 20 MB (.pdf)" },
+      { num: 3, label: "PDF nusxasi", icon: FileUp, desc: "Maksimal hajm: 100 MB (.pdf)" },
       { num: 4, label: "Arxiv joylashuvi", icon: MapIcon, desc: "Shkaf va Tokcha (Tok)" },
       { num: 5, label: "Xulosa va saqlash", icon: CheckCircle, desc: "Yakuniy ma'lumotlarni tahlil qilish" }
     ];
@@ -693,7 +693,7 @@ export default function IntakeTab({ onNavigateToTab }: IntakeTabProps) {
                       <div className="space-y-2">
                         <FileUp className="w-10 h-10 text-indigo-400 mx-auto animate-bounce-subtle" />
                         <p className="text-sm font-sans font-bold text-indigo-950">Faylni tanlash yoki sudrab yuklash</p>
-                        <p className="text-[10px] text-neutral-400 font-mono uppercase tracking-widest">Faqat .pdf formatida, maksimal 20 MB</p>
+                        <p className="text-[10px] text-neutral-400 font-mono uppercase tracking-widest">Faqat .pdf formatida, maksimal 100 MB</p>
                       </div>
                     </div>
 
